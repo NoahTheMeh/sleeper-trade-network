@@ -1,25 +1,17 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import FetchSleeperData from './FetchSleeperData';
+import TradesNetwork from './TradesNetwork';
 
-function App() {
+const App = () => {
+  const [data, setData] = useState(null);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <h1>Sleeper Trades Network</h1>
+      <FetchSleeperData setData={setData} />
+      {data ? <TradesNetwork data={data} /> : <p>Loading...</p>}
     </div>
   );
-}
+};
 
 export default App;
