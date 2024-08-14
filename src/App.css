@@ -32,7 +32,65 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
+}
+
+.trades-network-container {
+  font-family: Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.filter-button {
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.filter-button.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.trade-type-selector {
+  display: flex;
+  gap: 15px;
+}
+
+.trade-type-selector label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.trade-type-selector input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+.network-visualization {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
 }

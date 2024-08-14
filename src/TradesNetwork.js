@@ -5,9 +5,7 @@ import playerNames from './player_names.json';  // Assuming player_names.json is
 const TradesNetwork = ({ data }) => {
     const svgRef = useRef();
     const [filtered, setFiltered] = useState(false);
-    const [tradeType, setTradeType] = useState("all");
-
-
+    const [tradeTypes, setTradeTypes] = useState(['trade']);
 
     useEffect(() => {
         const { rosters, trades, users } = data;
@@ -15,10 +13,11 @@ const TradesNetwork = ({ data }) => {
         console.log(users)
 
         // Filter out trades where consenter_ids is null or undefined and only keep complete trades
-        const filteredTrades = trades.filter(trade =>
-            Array.isArray(trade.consenter_ids) && trade.status === "complete"
+        let filteredTrades = trades.filter(trade =>
+            Array.isArray(trade.consenter_ids) &&
+            trade.status === "complete" &&
+            tradeTypes.includes(trade.type)
         );
-
 
         // Maps to store nodes and links
         const rosterNodesMap = new Map();
@@ -35,33 +34,43 @@ const TradesNetwork = ({ data }) => {
             });
         });
 
-        // Process trades to create unique player nodes and links
+        // Process trades to create player nodes and links
         filteredTrades.forEach(trade => {
-            if (tradeType === "all" || trade.type === tradeType) {
-                Object.entries(trade.adds || {}).forEach(([playerId, teamId]) => {
-                    // Create a unique node for each player if it doesn't exist
-                    if (!playerNodesMap.has(playerId)) {
-                        const playerName = playerNames[playerId] || `Player ${playerId}`;
-                        playerNodesMap.set(playerId, {
-                            id: playerId,
-                            label: playerName,
-                            type: 'player',
-                        });
-                    }
-
-                    // Create a link between the team node and the unique player node
-                    const teamNodeId = teamId.toString();
-                    const playerNode = playerNodesMap.get(playerId);
-
-                    if (rosterNodesMap.has(teamNodeId)) {
-                        links.push({
-                            source: teamNodeId,
-                            target: playerNode.id,
-                            type: trade.type  // Store the transaction type (waiver, free_agent, trade)
-                        });
-                    }
+            // Create player nodes and connect them to their respective teams
+            Object.entries(trade.adds || {}).forEach(([playerId, teamId]) => {
+                if (!playerNodesMap.has(playerId)) {
+                    const playerName = playerNames[playerId] || `Player ${playerId}`;
+                    playerNodesMap.set(playerId, {
+                        id: playerId,
+                        label: playerName,
+                        type: 'player',
+                    });
+                }
+                // Create a link from the player to the team that added them
+                links.push({
+                    source: playerNodesMap.get(playerId).id,
+                    target: teamId.toString(),
+                    type: trade.type,
                 });
-            }
+            });
+
+            Object.entries(trade.drops || {}).forEach(([playerId, teamId]) => {
+                if (!playerNodesMap.has(playerId)) {
+                    const playerName = playerNames[playerId] || `Player ${playerId}`;
+                    playerNodesMap.set(playerId, {
+                        id: playerId,
+                        label: playerName,
+                        type: 'player',
+                    });
+                }
+                // Create a link from the team that dropped the player to the player
+                links.push({
+                    source: teamId.toString(),
+                    target: playerNodesMap.get(playerId).id,
+                    type: trade.type,
+                });
+            });
+
         });
 
         // Apply filtering based on the toggle
@@ -83,9 +92,12 @@ const TradesNetwork = ({ data }) => {
             );
         }
 
+        const width = 1600;
+        const height = 1600;
+
         const svg = d3.select(svgRef.current)
-            .attr("width", 1600)
-            .attr("height", 1600)
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .attr("preserveAspectRatio", "xMidYMid meet");
 
         // Clear any existing elements before drawing new ones
         svg.selectAll("*").remove();
@@ -101,7 +113,6 @@ const TradesNetwork = ({ data }) => {
             })
         );
 
-
         const tooltip = d3.select("body")
             .append("div")
             .style("position", "absolute")
@@ -115,8 +126,8 @@ const TradesNetwork = ({ data }) => {
         const simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(links).id(d => d.id).distance(100))
             .force("charge", d3.forceManyBody().strength(-300))
-            .force("center", d3.forceCenter(0, 0))
-            .force("collision", d3.forceCollide().radius(20))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(d => d.type === 'user' ? 30 : 10))
             .on("tick", ticked);
 
         const link = g.append("g")
@@ -138,29 +149,77 @@ const TradesNetwork = ({ data }) => {
             });
 
         const node = g.append("g")
-            .selectAll("circle")
+            .selectAll("g")
             .data(nodes)
-            .enter().append("circle")
-            .attr("r", d => d.type === 'user' ? 10 : 6)
-            .attr("fill", d => d.type === 'user' ? getUserColor(d.id) : "lightblue")
-            .on("mouseover", function (event, d) {
-                tooltip.html(d.type === 'user' ? `<strong>Team:</strong> ${d.label}` : `<strong>Player:</strong> ${d.label}`)
-                    .style("visibility", "visible");
-            })
+            .enter().append("g")
+            .call(d3.drag()
+                .on("start", dragStarted)
+                .on("drag", dragged)
+                .on("end", dragEnded));
+
+        node.append("circle")
+            .attr("r", d => d.type === 'user' ? 25 : 6)
+            .attr("fill", d => d.type === 'user' ? getUserColor(d.id) : "lightblue");
+
+        node.append("text")
+            .attr("dy", ".35em")
+            .attr("text-anchor", "middle")
+            .text(d => d.type === 'user' ? d.label : "")
+            .attr("font-size", "10px")
+            .attr("fill", "white");
+
+        node.on("mouseover", function (event, d) {
+            tooltip.html(d.type === 'user' ? `<strong>Team:</strong> ${d.label}` : `<strong>Player:</strong> ${d.label}`)
+                .style("visibility", "visible");
+
+            if (d.type === 'user') {
+                // For roster nodes
+                const connectedNodes = new Set([d.id]);
+                const relevantLinks = new Set();
+
+                // First pass: find directly connected players
+                links.forEach(l => {
+                    if (l.source.id === d.id && l.target.type === 'player') {
+                        connectedNodes.add(l.target.id);
+                        relevantLinks.add(l);
+                    } else if (l.target.id === d.id && l.source.type === 'player') {
+                        connectedNodes.add(l.source.id);
+                        relevantLinks.add(l);
+                    }
+                });
+
+                // Second pass: find rosters connected to these players
+                links.forEach(l => {
+                    if (connectedNodes.has(l.source.id) && l.target.type === 'user' && l.target.id !== d.id) {
+                        connectedNodes.add(l.target.id);
+                        relevantLinks.add(l);
+                    } else if (connectedNodes.has(l.target.id) && l.source.type === 'user' && l.source.id !== d.id) {
+                        connectedNodes.add(l.source.id);
+                        relevantLinks.add(l);
+                    }
+                });
+
+                // Highlight relevant nodes and links
+                node.style("opacity", n => connectedNodes.has(n.id) ? 1 : 0.1);
+                link.style("opacity", l => relevantLinks.has(l) ? 1 : 0.1);
+            } else {
+                // For player nodes (unchanged)
+                link.style("opacity", l => (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.1);
+                node.style("opacity", n => (n.id === d.id || links.some(l =>
+                    (l.source.id === d.id && l.target.id === n.id) ||
+                    (l.target.id === d.id && l.source.id === n.id)
+                )) ? 1 : 0.1);
+            }
+        })
             .on("mousemove", function (event) {
                 tooltip.style("top", (event.pageY - 10) + "px")
                     .style("left", (event.pageX + 10) + "px");
             })
             .on("mouseout", function () {
                 tooltip.style("visibility", "hidden");
-            })
-            .call(d3.drag()
-                .on("start", dragStarted)
-                .on("drag", dragged)
-                .on("end", dragEnded));
-
-        node.append("title")
-            .text(d => d.label);
+                link.style("opacity", 1);
+                node.style("opacity", 1);
+            });
 
         function ticked() {
             link
@@ -170,8 +229,7 @@ const TradesNetwork = ({ data }) => {
                 .attr("y2", d => d.target.y);
 
             node
-                .attr("cx", d => d.x)
-                .attr("cy", d => d.y);
+                .attr("transform", d => `translate(${d.x},${d.y})`);
         }
 
         function dragStarted(event, d) {
@@ -201,20 +259,59 @@ const TradesNetwork = ({ data }) => {
             tooltip.remove();
             svg.selectAll("*").remove(); // Clean up the SVG elements on unmount
         };
-    }, [data, filtered, tradeType]);
+    }, [data, filtered, tradeTypes]);
+
+    const handleTradeTypeChange = (event) => {
+        const value = event.target.value;
+        setTradeTypes(prev =>
+            prev.includes(value)
+                ? prev.filter(type => type !== value)
+                : [...prev, value]
+        );
+    };
 
     return (
-        <div>
-            <button onClick={() => setFiltered(!filtered)}>
-                Toggle Filter (Remove Nodes with One Link)
-            </button>
-            <select onChange={(e) => setTradeType(e.target.value)} value={tradeType}>
-                <option value="all">All</option>
-                <option value="waiver">Waiver</option>
-                <option value="free_agent">Free Agent</option>
-                <option value="trade">Trade</option>
-            </select>
-            <svg ref={svgRef}></svg>
+        <div className="trades-network-container">
+            <div className="controls">
+                <button
+                    className={`filter-button ${filtered ? 'active' : ''}`}
+                    onClick={() => setFiltered(!filtered)}
+                >
+                    {filtered ? 'Show All Nodes' : 'Hide Single-Link Nodes'}
+                </button>
+                <div className="trade-type-selector">
+                    <label>
+                        <input
+                            type="checkbox"
+                            value="trade"
+                            checked={tradeTypes.includes('trade')}
+                            onChange={handleTradeTypeChange}
+                        />
+                        Trade
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            value="waiver"
+                            checked={tradeTypes.includes('waiver')}
+                            onChange={handleTradeTypeChange}
+                        />
+                        Waiver
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            value="free_agent"
+                            checked={tradeTypes.includes('free_agent')}
+                            onChange={handleTradeTypeChange}
+                        />
+                        Free Agent
+                    </label>
+                </div>
+            </div>
+            <div className="network-visualization">
+                <svg ref={svgRef}></svg>
+            </div>
         </div>
     );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import FetchSleeperData from './FetchSleeperData';
 import TradesNetwork from './TradesNetwork';
+import './App.css';
 
 const App = () => {
   const [data, setData] = useState(null);
