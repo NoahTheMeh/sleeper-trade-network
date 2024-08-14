@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FetchSleeperData from './FetchSleeperData';
 import TradesNetwork from './TradesNetwork';
 import './App.css';
 
 const App = () => {
+
+  useEffect(() => {
+    document.title = 'Sleeper League Trade Analysis';
+  }, []);
+
   const [data, setData] = useState(null);
 
   return (
