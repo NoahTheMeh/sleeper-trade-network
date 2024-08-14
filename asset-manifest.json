@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/sleeper-trade-network/static/css/main.a27d8c17.css",
-    "main.js": "/sleeper-trade-network/static/js/main.a7b228f8.js",
+    "main.js": "/sleeper-trade-network/static/js/main.b481fb03.js",
     "static/js/453.03985711.chunk.js": "/sleeper-trade-network/static/js/453.03985711.chunk.js",
     "index.html": "/sleeper-trade-network/index.html",
     "main.a27d8c17.css.map": "/sleeper-trade-network/static/css/main.a27d8c17.css.map",
-    "main.a7b228f8.js.map": "/sleeper-trade-network/static/js/main.a7b228f8.js.map",
+    "main.b481fb03.js.map": "/sleeper-trade-network/static/js/main.b481fb03.js.map",
     "453.03985711.chunk.js.map": "/sleeper-trade-network/static/js/453.03985711.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.a27d8c17.css",
-    "static/js/main.a7b228f8.js"
+    "static/js/main.b481fb03.js"
   ]
 }
